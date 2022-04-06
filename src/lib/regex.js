@@ -23,7 +23,7 @@ function toSource (source) {
  * @param {string|RegExp|Array<string|RegExp>} source
  */
 export function pattern (source) {
-  return new RegExp(`(${toSource(source)})`, 'g')
+  return new RegExp(toSource(source), 'g')
 }
 
 /**
