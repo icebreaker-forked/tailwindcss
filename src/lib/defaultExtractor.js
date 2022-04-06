@@ -86,193 +86,31 @@ function* buildRegExps(context) {
 
   yield regex.pattern([
     // Variants
-    variants,
+    /((?=([^\s"'\\\[]+:))\2)?/,
 
-    // Important utilities (!underline, hover:!underline, etc…)
-    maybeImportant,
-
-    // Negative utilities (-inset-1, -tw-inset-1)
-    maybeNegative,
-
-    maybePrefix,
-
-    // Negative utilities (tw--inset-1)
-    maybeNegative,
-
+    // Arbitrary properties or utilities
     '(?:',
-      `(?:\\b|${regex.escape(context.tailwindConfig.separator)}?)`,
-      // Utility Groups
-      '(?:',
-        '(?:',
-          regex.any([
-            singularUtilities,
-            groupedUtilities,
-          ]),
-        ')',
-
-        '(?:',
-          '(?:',
-            // Utility values the `5` in `inset-x-5`
-            /[^\s\\'"=\[]+/,
-
-            // or…
-            '|',
-
-            // Arbitrary values like the `['foo']` in `inset-x-['foo']`
-            /\[[^\s]+\]/,
-          ')',
-
-          // Followed by an optional color opacity modifier
-          regex.optional(regex.any([
-            // ORDER IS IMPORTANT HERE :)
-
-            // Arbitrary opacity modifier
-            // e.g. `text-red-500/[.5]`
-            /\/\[[^\s]+\]/,
-
-            // Known opacity modifier
-            // e.g. `text-red-500/50`
-            /\/[^\s\\'"\[]+/,
-
-            // Empty opacity modifier
-            // e.g. `text-red-500/`
-            /\//,
-          ])),
-        ')?',
-      ')',
-
-      // Or arbitrary properties like the `[text-shadow:0_0_1px_magenta]`
+      // Arbitrary properties
+      /!?\[[^\s:'"]+:[^\s\]]+\]/,
       '|',
-      /\[[^\s:'"]+:[^\s\]]+\]/,
+      // Utilities or Utility Groups
+      /!?-?(?:\w+)/,
+      // Utility values or Arbitrary values
+      '(?:',
+        // Arbitrary values with quotes — may be followed by an opacity modifier
+        /-\[['"][^\s]+?['"]\](?:\/[^\s'"\\$]*)?/,
+        '|',
+        // Arbitrary values w/o quotes — may be followed by an opacity modifier
+        /-\[[^\s]+\](?:\/[^\s'"\\$]*)?/,
+        '|',
+        // Normal values w/o quotes — may include an opacity modifier
+        /[-\/][^\s'"\\$=]*/,
+      ')?',
     ')',
-
-    // Followed by something that is definitely not part of this class
-    followedByNonClassThing,
-  ])
-
-  /*
-  // 1. Singular utilities
-  yield regex.pattern([
-    // hover:, hover:focus:, hover:active:, etc…
-    variants,
-
-    // Important utilities (!underline, hover:!underline, etc…)
-    maybeImportant,
-
-    // Negative utilities (before prefix: -inset-1, -tw-inset-1)
-    maybeNegative,
-
-    // A prefix (if one is configured)
-    maybePrefix,
-
-    // Negative utilities (after prefix: tw--inset-1)
-    maybeNegative,
-
-    // sr-only, border, border-, border-r-, border-l-, etc…
-    singularUtilities,
-
-    // NOT followed by a hyphen because that'd be a grouped utility
-    /(?!-)/,
-
-    // Followed by an optional color opacity modifier
-    maybeOpacityModifier,
-
-    // Followed by something that is definitely not part of this class
-    // For example this prevents border-r from matching border-red-500 unless it's "by itself"
-    followedByNonClassThing,
-  ])
-
-  // 2. Grouped utilities
-  yield regex.pattern([
-    // hover:, hover:focus:, hover:active:, etc…
-    variants,
-
-    // Important utilities (!underline, hover:!underline, etc…)
-    maybeImportant,
-
-    // Negative utilities (before prefix: -inset-1, -tw-inset-1)
-    maybeNegative,
-
-    // A prefix (if one is configured)
-    maybePrefix,
-
-    // Negative utilities (after prefix: tw--inset-1)
-    maybeNegative,
-
-    // border-, border-r-, border-l-, etc…
-    groupedUtilities,
-
-    // Utility values the `5` in `inset-x-5`
-    // optional for utilities that are not a group
-    // Can't contain `[` because that means it's part of an arbitrary value
-    /-/,
-    /[^\s\\'"=\[\/]+/,
-
-    // Followed by an optional color opacity modifier
-    maybeOpacityModifier,
-
-    // Followed by something that is definitely not part of this class
-    // For example this prevents border-r from matching border-red-500 unless it's "by itself"
-    followedByNonClassThing,
-  ])
-
-  // 3. Arbitrary value utilities
-  yield regex.pattern([
-    // hover:, hover:focus:, hover:active:, etc…
-    variants,
-
-    // Important utilities (!underline, hover:!underline, etc…)
-    maybeImportant,
-
-    // Negative utilities (before prefix: -inset-1, -tw-inset-1)
-    maybeNegative,
-
-    // A prefix (if one is configured)
-    maybePrefix,
-
-    // Negative utilities (before prefix: -inset-1, -tw-inset-1)
-    maybeNegative,
-
-    // sr-only, border, border-, border-r-, border-l-, etc…
-    groupedUtilities,
-
-    // Arbitrary values like the `['foo']` in `inset-x-['foo']`
-    // TODO: This treats w-[foo]w-[bar] as two separate values when it should be treated as a single value
-    /-/,
-    /\[[^\s]+\]/,
-    // regex.nestedBrackets('[', ']', 3),
-
-    // Followed by an optional color opacity modifier
-    maybeOpacityModifier,
-  ])
-
-  // 4. Arbitrary property utilities
-  yield regex.pattern([
-    // hover:, hover:focus:, hover:active:, etc…
-    variants,
-
-    // // Important utilities (!underline, hover:!underline, etc…)
-    maybeImportant,
-
-    // // A prefix (if one is configured)
-    maybePrefix,
-
-    // Not preceded by a hyphen because that'd be part of a grouped utility with a type clarification
-    // TODO: Check this with a prefix that has a hyphen
-    // Maybe positive assertion for preceded by prefix or non-hyphen
-    // For example: w-[length:12px]
-    /(?<!-)/,
-
-    // // Arbitrary properties like the `[text-shadow:0_0_1px_magenta]`
-    /\[[^\s:'"]+:[^\s\]]+\]/,
-
-    // Followed by something that is definitely not part of this class
-    followedByNonClassThing,
-  ])
+  ].join(''), 'g')
 
   // 5. Inner matches
   yield /[^<>"'`\s.(){}[\]#=%$]*[^<>"'`\s.(){}[\]#=%:$]/g
-  */
 }
 
 // Regular utilities
