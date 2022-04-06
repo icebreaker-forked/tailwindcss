@@ -14,8 +14,6 @@ export function defaultExtractor(context) {
     let results = []
 
     for (let pattern of patterns) {
-      console.log(pattern)
-
       for (const match of content.matchAll(pattern)) {
         results.push(...match)
       }
@@ -34,8 +32,8 @@ function* buildRegExps(context) {
 
   // Matches hover:, focus:, hover:focus:, etc…
   // Accounts for the configured variant separator
-  let variants = regex.zeroOrMore([
-    `[^\s\\'"${variantSeparator}]+`,
+  let variants = regex.optional([
+    /[^\s\\'"]+/,
     variantSeparator,
   ])
 
@@ -84,8 +82,75 @@ function* buildRegExps(context) {
 
   // Zero length assertion ensuring a class is followed by something that is definitely not part of this class
   // (or end of the line)
-  let followedByNonClassThing = /(?=[\s\\'"]|$)/
+  let followedByNonClassThing = /(?=[<>"'`\s]|$)/
 
+  yield regex.pattern([
+    // Variants
+    variants,
+
+    // Important utilities (!underline, hover:!underline, etc…)
+    maybeImportant,
+
+    // Negative utilities (-inset-1, -tw-inset-1)
+    maybeNegative,
+
+    maybePrefix,
+
+    // Negative utilities (tw--inset-1)
+    maybeNegative,
+
+    '(?:',
+      `(?:\\b|${regex.escape(context.tailwindConfig.separator)}?)`,
+      // Utility Groups
+      '(?:',
+        '(?:',
+          regex.any([
+            singularUtilities,
+            groupedUtilities,
+          ]),
+        ')',
+
+        '(?:',
+          '(?:',
+            // Utility values the `5` in `inset-x-5`
+            /[^\s\\'"=\[]+/,
+
+            // or…
+            '|',
+
+            // Arbitrary values like the `['foo']` in `inset-x-['foo']`
+            /\[[^\s]+\]/,
+          ')',
+
+          // Followed by an optional color opacity modifier
+          regex.optional(regex.any([
+            // ORDER IS IMPORTANT HERE :)
+
+            // Arbitrary opacity modifier
+            // e.g. `text-red-500/[.5]`
+            /\/\[[^\s]+\]/,
+
+            // Known opacity modifier
+            // e.g. `text-red-500/50`
+            /\/[^\s\\'"\[]+/,
+
+            // Empty opacity modifier
+            // e.g. `text-red-500/`
+            /\//,
+          ])),
+        ')?',
+      ')',
+
+      // Or arbitrary properties like the `[text-shadow:0_0_1px_magenta]`
+      '|',
+      /\[[^\s:'"]+:[^\s\]]+\]/,
+    ')',
+
+    // Followed by something that is definitely not part of this class
+    followedByNonClassThing,
+  ])
+
+  /*
   // 1. Singular utilities
   yield regex.pattern([
     // hover:, hover:focus:, hover:active:, etc…
@@ -186,10 +251,10 @@ function* buildRegExps(context) {
     // hover:, hover:focus:, hover:active:, etc…
     variants,
 
-    // Important utilities (!underline, hover:!underline, etc…)
+    // // Important utilities (!underline, hover:!underline, etc…)
     maybeImportant,
 
-    // A prefix (if one is configured)
+    // // A prefix (if one is configured)
     maybePrefix,
 
     // Not preceded by a hyphen because that'd be part of a grouped utility with a type clarification
@@ -198,7 +263,7 @@ function* buildRegExps(context) {
     // For example: w-[length:12px]
     /(?<!-)/,
 
-    // Arbitrary properties like the `[text-shadow:0_0_1px_magenta]`
+    // // Arbitrary properties like the `[text-shadow:0_0_1px_magenta]`
     /\[[^\s:'"]+:[^\s\]]+\]/,
 
     // Followed by something that is definitely not part of this class
@@ -207,6 +272,7 @@ function* buildRegExps(context) {
 
   // 5. Inner matches
   yield /[^<>"'`\s.(){}[\]#=%$]*[^<>"'`\s.(){}[\]#=%:$]/g
+  */
 }
 
 // Regular utilities

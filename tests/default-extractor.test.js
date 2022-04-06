@@ -413,26 +413,26 @@ test('with single quotes array within template literal', async () => {
   const extractions = defaultExtractor(`<div class=\`\${['pr-1.5']}\`></div>`)
 
   expect(extractions).toContain('pr-1.5')
-  expect(extractions).toContain('pr-1')
+  expect(extractions).not.toContain('pr-1')
 })
 
 test('with double quotes array within template literal', async () => {
   const extractions = defaultExtractor(`<div class=\`\${["pr-1.5"]}\`></div>`)
 
   expect(extractions).toContain('pr-1.5')
-  expect(extractions).toContain('pr-1')
+  expect(extractions).not.toContain('pr-1')
 })
 
 test('with single quotes array within function', async () => {
   const extractions = defaultExtractor(`document.body.classList.add(['pl-1.5'].join(" "));`)
 
   expect(extractions).toContain('pl-1.5')
-  expect(extractions).toContain('pl-1')
+  expect(extractions).not.toContain('pl-1')
 })
 
 test('with double quotes array within function', async () => {
   const extractions = defaultExtractor(`document.body.classList.add(["pl-1.5"].join(" "));`)
 
   expect(extractions).toContain('pl-1.5')
-  expect(extractions).toContain('pl-1')
+  expect(extractions).not.toContain('pl-1')
 })
