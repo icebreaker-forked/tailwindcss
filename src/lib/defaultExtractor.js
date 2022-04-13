@@ -14,8 +14,8 @@ export function defaultExtractor(context) {
     let results = []
 
     for (let pattern of patterns) {
-      for (let match of content.matchAll(pattern)) {
-        results.push(...match)
+      for (let match of content.match(pattern) ?? []) {
+        results.push(match)
       }
     }
 
@@ -47,7 +47,7 @@ function* buildRegExps(context) {
         regex.optional(regex.any([
           regex.pattern([
             // Arbitrary values
-            /-\[[^\s]+\]/,
+            /-\[[^\s:]+\]/,
 
             // optionally followed by an opacity modifier
             /(?:\/[^\s'"\\$]*)?/,
@@ -64,8 +64,11 @@ function* buildRegExps(context) {
   // yield /[^<>"'`\s.(){}[\]#=%$]*[^<>"'`\s.(){}[\]#=%:$]/g
 }
 
-let SPECIALS = /[()\[\]{}'"`]/g
-let ALLOWED_CLASS_CHARACTERS = /[^"'`\s<>]+/
+// We want to capture any "special" characters
+// AND the characters immediately following them (if there is one)
+// However we want single character matches so we have to use a lookbehind assertion
+let SPECIALS = /[()\[\]{}'"`]|(?<=[()\[\]{}'"`])./g
+let ALLOWED_CLASS_CHARACTERS = /[^"'`\s<>\]]+/
 
 /**
  * Clips a string ensuring that parentheses, quotes, etc… are balanced
@@ -87,6 +90,7 @@ function clipAtBalancedParens(input) {
     return input
   }
 
+  // We are care about this for arbitrary values
   SPECIALS.lastIndex = -1
 
   let depth = 0
@@ -109,27 +113,41 @@ function clipAtBalancedParens(input) {
       continue
     }
 
-    if (char === '(') depth++
-    if (char === '[') depth++
-    if (char === '{') depth++
-    if (char === ')') depth--
-    if (char === ']') depth--
-    if (char === '}') depth--
-
-    // We've now hit an unbalanced bracket pair
-    // We'll clip the string to before the character
-    if (depth === 0) {
-      let output = input.substring(0, match.index + 1)
-
-      // Scan forwards until we find any non-class characters
-      output += input.substring(match.index + 1).match(ALLOWED_CLASS_CHARACTERS)
-
-      return output
+    if (char === '[') {
+      depth++
+      continue
     }
-  }
 
-  if (input.includes('h-[100px')) {
-    console.log(input)
+    if (char === ']') {
+      depth--
+      continue
+    }
+
+    // We've gone one character past the point where we should stop
+    // This means that there was an extra closing `]`
+    // We'll clip to just before it
+    if (depth < 0) {
+      return input.substring(0, match.index)
+    }
+
+    let isAllowedCharacter = ALLOWED_CLASS_CHARACTERS.test(char)
+
+    // We've finished balancing the brackets but there still may be characters that can be included
+    // For example in the class `text-[#336699]/[.35]`
+    // The depth goes to `0` at the closing `]` but goes up again at the `[`
+
+    // If we're at zero and encounter a non-class character then we clip the class there
+    if (depth === 0 && !isAllowedCharacter) {
+      if (input.includes("text-[52px")) {
+        console.log({
+          input,
+          char,
+          clipped: input.substring(0, match.index)
+        })
+      }
+
+      return input.substring(0, match.index)
+    }
   }
 
   return input
